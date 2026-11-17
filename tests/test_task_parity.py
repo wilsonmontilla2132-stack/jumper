@@ -84,6 +84,11 @@ NOT_LOCOMOTION = {
     # one-shot, no command, no gait prior, and a reward budget of height, not of
     # velocity tracking.
     "jumper.ref_free_jump",
+    # ref_free_jump's environment with a rotation objective: a command that counts
+    # the backward turn of the episode's own flight, `upright` and `fell_over`
+    # gated to outside it, and two flip rewards. One-shot, no command axes, so
+    # none of the four's tracking or gait terms exist to compare.
+    "jumper.backflip",
     # Walks the tripod gait with the body's posture commanded on top: a second
     # command term, three tracking rewards for it, two observations, `upright`
     # replaced by its command-relative version, and both ceilings raised (which
