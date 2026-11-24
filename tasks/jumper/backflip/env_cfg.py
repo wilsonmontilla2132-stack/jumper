@@ -55,7 +55,7 @@ TURN_TARGET = 2.0 * math.pi
 #: `flip_progress`'s weight: what a whole turn pays in total, over the flight
 #: (a potential; see `mdp/commands.py`). The flight is about 60 control steps at 200 Hz,
 #: so this is about 3 a step in a flip made at the recording's pace. A guess.
-FLIP_PROGRESS_WEIGHT = 200.0
+FLIP_PROGRESS_WEIGHT = 800.0
 
 #: `flip_landing`'s weight: paid every step after landing, in proportion to the
 #: share of the turn made and how upright the body is. `ref_free_jump`'s landed apex
@@ -64,8 +64,15 @@ FLIP_PROGRESS_WEIGHT = 200.0
 FLIP_LANDING_WEIGHT = 15.0
 FLIP_LANDING_SIGMA_SQ = 0.10
 
-#: `upright_grounded` keeps `ref_free_jump`'s weight and kernel for `upright`.
-UPRIGHT_WEIGHT = 1.0
+#: `ref_free_jump`'s weight for `upright`, which `upright_grounded` replaces; asserted below.
+REF_UPRIGHT_WEIGHT = 1.0
+#: `upright_grounded`'s weight, a fifth of that. Hypothesis, not a measurement: the
+#: first run (1024 envs, T4, 1300 iterations) ended at 0.08 turns, and with the
+#: full weight a failed flip, ending on the back, forfeits most of an episode's
+#: upright and home-pose reward while a partial turn pays little, so not trying
+#: pays more. Lowering this and raising `FLIP_PROGRESS_WEIGHT` (200 -> 800) is the
+#: cheapest change that tests that reading.
+UPRIGHT_WEIGHT = 0.2
 UPRIGHT_SIGMA_SQ = 0.10
 
 # ── The schedule ───────────────────────────────────────────────────────────────
@@ -75,8 +82,8 @@ UPRIGHT_SIGMA_SQ = 0.10
 #: iteration 30), so the hold here is shorter, to give the flip more of the budget.
 #: A guess, and the first thing to lengthen if the policy has no jump left when the
 #: feedforward goes.
-PRIOR_HOLD_ITERATIONS = 200
-PRIOR_END_ITERATIONS = 800
+PRIOR_HOLD_ITERATIONS = 100
+PRIOR_END_ITERATIONS = 350
 
 #: The height terms' final weights. `ref_free_jump`'s are 4 and 2; halved, so that
 #: height does not out-pay the turn. A guess.
@@ -138,7 +145,7 @@ def env_cfg(asset: Path | None = None, play: bool = False) -> ManagerBasedRlEnvC
 
     # ── Rewards: the upright term gated, the flip terms added at weight 0 ──────
     old_upright = cfg.rewards.pop("upright")
-    assert old_upright.weight == UPRIGHT_WEIGHT, "ref_free_jump's upright weight moved"
+    assert old_upright.weight == REF_UPRIGHT_WEIGHT, "ref_free_jump's upright weight moved"
     cfg.rewards["upright_grounded"] = RewardTermCfg(
         func=flip_mdp.rewards.upright_grounded, weight=UPRIGHT_WEIGHT,
         params={"command_name": "jump", "sigma_sq": UPRIGHT_SIGMA_SQ},
