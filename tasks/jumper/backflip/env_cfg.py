@@ -62,6 +62,13 @@ FLIP_PROGRESS_WEIGHT = 800.0
 #: pays about 4 x 1.2 a step for a jump as high as the recording's, so this is set to
 #: exceed what a flat jump earns, or the flat jump is the better policy. A guess.
 FLIP_LANDING_WEIGHT = 15.0
+
+#: `flip_spin`'s weight, per step of flight at the clip (20 rad/s, about the rate a
+#: whole turn needs in the recording's 0.32 s of flight). About 60 flight steps at
+#: 200 Hz, so a flip at that rate earns about 6 x 60 = 360 an episode, against the
+#: few tens a flat jump earns. A guess, the third run's.
+FLIP_SPIN_WEIGHT = 6.0
+FLIP_SPIN_OMEGA_MAX = 20.0
 FLIP_LANDING_SIGMA_SQ = 0.10
 
 #: `ref_free_jump`'s weight for `upright`, which `upright_grounded` replaces; asserted below.
@@ -154,20 +161,30 @@ def env_cfg(asset: Path | None = None, play: bool = False) -> ManagerBasedRlEnvC
         func=flip_mdp.rewards.flip_progress, weight=0.0,
         params={"command_name": "jump"},
     )
+    cfg.rewards["flip_spin"] = RewardTermCfg(
+        func=flip_mdp.rewards.flip_spin, weight=0.0,
+        params={"command_name": "jump", "omega_max": FLIP_SPIN_OMEGA_MAX},
+    )
     cfg.rewards["flip_landing"] = RewardTermCfg(
         func=flip_mdp.rewards.flip_landing, weight=0.0,
         params={"command_name": "jump", "sigma_sq": FLIP_LANDING_SIGMA_SQ},
     )
 
     # ── Curriculum: the same window for everything ─────────────────────────────
-    cfg.curriculum["apex_height_weight"].params["end_weight"] = APEX_END_WEIGHT
-    cfg.curriculum["flight_height_weight"].params["end_weight"] = FLIGHT_END_WEIGHT
-    cfg.curriculum["flip_progress_weight"] = _cross_fade(
-        "flip_progress", 0.0, FLIP_PROGRESS_WEIGHT
-    )
-    cfg.curriculum["flip_landing_weight"] = _cross_fade(
-        "flip_landing", 0.0, FLIP_LANDING_WEIGHT
-    )
+    # `ref_free_jump` clears the curriculum in play mode, so there is nothing to
+    # edit there; a replay reads the policy, not the rewards.
+    if not play:
+        cfg.curriculum["apex_height_weight"].params["end_weight"] = APEX_END_WEIGHT
+        cfg.curriculum["flight_height_weight"].params["end_weight"] = FLIGHT_END_WEIGHT
+        cfg.curriculum["flip_progress_weight"] = _cross_fade(
+            "flip_progress", 0.0, FLIP_PROGRESS_WEIGHT
+        )
+        cfg.curriculum["flip_spin_weight"] = _cross_fade(
+            "flip_spin", 0.0, FLIP_SPIN_WEIGHT
+        )
+        cfg.curriculum["flip_landing_weight"] = _cross_fade(
+            "flip_landing", 0.0, FLIP_LANDING_WEIGHT
+        )
     _reschedule(cfg)
 
     # ── Termination: tipped over, but not in the flight ────────────────────────

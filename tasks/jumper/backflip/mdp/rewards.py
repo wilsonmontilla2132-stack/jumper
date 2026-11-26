@@ -24,6 +24,26 @@ def flip_progress(env, command_name: str = "jump") -> torch.Tensor:
     return cmd.progress_delta
 
 
+def flip_spin(
+    env, command_name: str = "jump", omega_max: float = 20.0
+) -> torch.Tensor:
+    """Backward pitch rate, clipped to [0, omega_max] and scaled to [0, 1], paid
+    every step of the episode's own flight.
+
+    Not a potential, unlike `flip_progress`: a turn made is never paid back. In the
+    air the body's angular momentum is conserved, so the spin is decided at the
+    take-off and the policy cannot rotate forward again to undo it; the only way to
+    collect more of this is to leave the ground spinning faster. That is the
+    gradient a flip needs and the potential did not give: replaying the second run
+    (`model_599`, 32 envs, native CPU) tilted back 0.107 turns in the air and
+    landed with a net 0.003 -- worth nothing under the potential.
+    """
+    cmd = env.command_manager.get_term(command_name)
+    robot: Entity = env.scene["robot"]
+    omega = (-robot.data.root_link_ang_vel_b[:, 1]).clamp(0.0, omega_max) / omega_max
+    return omega * cmd.in_flight.float()
+
+
 def flip_landing(
     env, command_name: str = "jump", sigma_sq: float = 0.10
 ) -> torch.Tensor:
@@ -54,4 +74,4 @@ def upright_grounded(
     return torch.exp(-(g**2).sum(dim=1) / sigma_sq) * (~cmd.in_flight).float()
 
 
-__all__ = ["flip_landing", "flip_progress", "upright_grounded"]
+__all__ = ["flip_landing", "flip_progress", "flip_spin", "upright_grounded"]

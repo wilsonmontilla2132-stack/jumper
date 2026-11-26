@@ -7,9 +7,9 @@ from mjlab.rl import RslRlOnPolicyRunnerCfg
 from ..ref_free_jump.rl_cfg import NUM_STEPS_PER_ENV, agent_cfg as _ref_free_agent_cfg
 
 #: The iterations to train for. `env_cfg.py` hands the recording over by iteration
-#: 350; this leaves the objective, flip included, 250 of its own. Sized for a 30 minute
-#: T4 run at 1024 envs (about 3.1 s an iteration, measured on the first run).
-MAX_ITERATIONS = 600
+#: 350; this leaves the objective, flip included, 1150 of its own. About 80 minutes on a
+#: T4 at 1024 envs (about 3.1 s an iteration, measured on the first two runs).
+MAX_ITERATIONS = 1500
 
 
 def agent_cfg() -> RslRlOnPolicyRunnerCfg:
