@@ -89,6 +89,8 @@ NOT_LOCOMOTION = {
     # gated to outside it, and two flip rewards. One-shot, no command axes, so
     # none of the four's tracking or gait terms exist to compare.
     "jumper.backflip",
+    # jumper.backflip on a raised block, with drift charged sideways only.
+    "jumper.backflip_platform",
     # Walks the tripod gait with the body's posture commanded on top: a second
     # command term, three tracking rewards for it, two observations, `upright`
     # replaced by its command-relative version, and both ceilings raised (which
