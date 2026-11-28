@@ -31,8 +31,9 @@ from mjlab.envs import ManagerBasedRlEnvCfg
 from mjlab.managers.reward_manager import RewardTermCfg
 from mjlab.terrains.terrain_generator import TerrainGeneratorCfg
 
+from ..backflip.env_cfg import _cross_fade
 from ..backflip.env_cfg import env_cfg as _backflip_env_cfg
-from ..ref_free_jump.env_cfg import DRIFT_SCALE, DRIFT_WEIGHT
+from ..ref_free_jump.env_cfg import DRIFT_SCALE, DRIFT_WEIGHT, ILLEGAL_CONTACT_WEIGHT
 from . import mdp as platform_mdp
 
 #: Top of the block above the ground, metres. A guess; see the docstring.
@@ -46,6 +47,13 @@ WIDTH = 0.55
 #: Side of the square tile the block sits on. Every environment shares it; the
 #: worlds do not collide with one another.
 TILE = 3.0
+
+#: `backward_flight`'s weight, per step of flight at `BACKWARD_V_MAX`. Clearing
+#: the edge is about 0.2 m of travel in about 0.3 s, 0.7 m/s; at the clip that is
+#: 4 x 60 = 240 an episode, of the order of what `flip_spin` pays. A guess, the
+#: second platform run's.
+BACKWARD_WEIGHT = 4.0
+BACKWARD_V_MAX = 1.0
 
 
 def env_cfg(asset: Path | None = None, play: bool = False) -> ManagerBasedRlEnvCfg:
@@ -83,6 +91,24 @@ def env_cfg(asset: Path | None = None, play: bool = False) -> ManagerBasedRlEnvC
         func=platform_mdp.rewards.lateral_drift, weight=DRIFT_WEIGHT,
         params={"scale": DRIFT_SCALE},
     )
+
+    # ── Leaving the block: paid for, and not charged for brushing its edge ────
+    old = cfg.rewards.pop("illegal_contact")
+    assert old.weight == ILLEGAL_CONTACT_WEIGHT, "ref_free_jump's contact weight moved"
+    cfg.rewards["illegal_contact"] = RewardTermCfg(
+        func=platform_mdp.rewards.illegal_contact_grounded,
+        weight=ILLEGAL_CONTACT_WEIGHT, params={"command_name": "jump"},
+    )
+    cfg.rewards["backward_flight"] = RewardTermCfg(
+        func=platform_mdp.rewards.backward_flight, weight=0.0,
+        params={"command_name": "jump", "v_max": BACKWARD_V_MAX},
+    )
+    # Cross-faded in with the flip terms, for their reason: paid from the start
+    # it would pull the policy off the recording's jump before it has it.
+    if not play:
+        cfg.curriculum["backward_flight_weight"] = _cross_fade(
+            "backward_flight", 0.0, BACKWARD_WEIGHT
+        )
 
     return cfg
 
